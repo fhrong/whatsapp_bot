@@ -110,25 +110,40 @@ app = Flask(__name__)
 @app.route("/webhook", methods=["POST"])
 def webhook():
     data = request.get_json()
-    print("Webhook payload:", data)
-    message = data.get("message", "")
-    sender = data.get("number", "")
+    print("📩 Payload recebido:", data)  # <- Loga o JSON
+
+    # Tente acessar a estrutura padrão
+    try:
+        # Se o payload for no formato "messages"
+        if "messages" in data and len(data["messages"]) > 0:
+            msg = data["messages"][0]
+            message = msg.get("text", "")
+            sender = msg.get("from", "")
+        else:
+            # Backup para caso ainda venha no seu formato antigo de teste manual
+            message = data.get("message", "")
+            sender = data.get("number", "")
+    except Exception as e:
+        print("❌ Erro ao interpretar o JSON:", e)
+        return jsonify({"error": "Erro ao interpretar JSON"}), 400
 
     if not sender or not message:
+        print("❌ Falha: sender ou message ausentes")
         return jsonify({"error": "Mensagem ou número ausente"}), 400
 
     resposta = chat_with_gemini(message)
+    print(f"🧠 Resposta do Gemini: {resposta}")
 
     payload = {
         "number": sender,
         "options": {"delay": 150, "presence": "composing"},
-        "textMessage": {"text": str(resposta).replace("**", "*")}
+        "textMessage": {"text": resposta}
     }
 
     r = requests.post(EVOLUTION_API_URL, headers=EVOLUTION_HEADERS, json=payload)
-    print(f"Resposta enviada: {resposta} | Status: {r.status_code}")
+    print(f"📤 Mensagem enviada para Evolution | Status: {r.status_code}")
 
     return jsonify({"status": "ok", "sent": resposta})
-
+    
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
