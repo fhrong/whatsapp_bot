@@ -103,24 +103,30 @@ def chat_with_gemini(user_input: str):
     chat_history.append({"role": "model", "parts": [{"text": text}]})
     return text
 
-from flask import Flask, request, jsonify
-
-app = Flask(__name__)
-
 @app.route("/webhook", methods=["POST"])
 def webhook():
     data = request.get_json()
-    print("📩 Payload recebido:", data)  # <- Loga o JSON
+    print("📩 Payload recebido:", data)
 
-    # Tente acessar a estrutura padrão
+    # Envia o payload bruto para debug no WhatsApp
     try:
-        # Se o payload for no formato "messages"
+        debug_msg = f"[DEBUG Payload]\n{data}"
+        debug_payload = {
+            "number": "551698353214",
+            "options": {"delay": 100, "presence": "composing"},
+            "textMessage": {"text": debug_msg[:4096]}
+        }
+        debug_response = requests.post(EVOLUTION_API_URL, headers=EVOLUTION_HEADERS, json=debug_payload)
+        print(f"📤 Mensagem DEBUG enviada | Status: {debug_response.status_code}")
+    except Exception as e:
+        print(f"❌ Erro ao enviar mensagem de debug: {e}")
+
+    try:
         if "messages" in data and len(data["messages"]) > 0:
             msg = data["messages"][0]
             message = msg.get("text", "")
             sender = msg.get("from", "")
         else:
-            # Backup para caso ainda venha no seu formato antigo de teste manual
             message = data.get("message", "")
             sender = data.get("number", "")
     except Exception as e:
@@ -144,6 +150,6 @@ def webhook():
     print(f"📤 Mensagem enviada para Evolution | Status: {r.status_code}")
 
     return jsonify({"status": "ok", "sent": resposta})
-    
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
