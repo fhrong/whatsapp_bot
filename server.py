@@ -1,12 +1,12 @@
 from flask import Flask, request, jsonify
-import requests
 
 app = Flask(__name__)
 
-@app.route("/webhook", methods=["POST"])
+@app.route("/webhook", methods=["POST", "GET"])
 def webhook():
+    if request.method == "GET":
+        return "Webhook está ativo!", 200
     data = request.get_json()
-    # Just print data for now to check it works
     print("Recebido do Evolution:", data)
     return jsonify({"status": "ok"})
 
