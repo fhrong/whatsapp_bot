@@ -203,6 +203,26 @@ def webhook():
 
     return jsonify({"status": "ok", "sent": resposta})
 
+def configurar_webhook():
+    url = "https://evolution-api-ny08.onrender.com/webhook/set/HNtestingbot"
+    payload = {
+        "url": "https://whatsapp-bot-puz8.onrender.com/webhook/messages-upsert",
+        "webhook_by_events": True,
+        "webhook_base64": True,
+        "events": ["MESSAGES_UPSERT", "APPLICATION_STARTUP"]
+    }
+    headers = {
+        "apikey": EVOLUTION_API_KEY,
+        "Content-Type": "application/json"
+    }
+
+    try:
+        response = requests.post(url, json=payload, headers=headers)
+        print("⚙️ Webhook configurado automaticamente | Status:", response.status_code)
+        print(response.text)
+    except Exception as e:
+        print("❌ Erro ao configurar o webhook no startup:", e)
 
 if __name__ == "__main__":
+    configurar_webhook()
     app.run(host="0.0.0.0", port=5000)
