@@ -6,8 +6,11 @@ app = Flask(__name__)
 def webhook():
     if request.method == "GET":
         return "Webhook está ativo!", 200
-    data = request.get_json()
+
+    data = request.get_json(silent=True)
     print("Recebido do Evolution:", data)
+
+
     return jsonify({"status": "ok"})
 
 if __name__ == "__main__":
