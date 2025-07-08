@@ -104,6 +104,7 @@ def chat_with_gemini(user_input: str):
     return text
 
 @app.route("/webhook", methods=["POST"])
+@app.route("/webhook/messages-upsert", methods=["POST"])
 def webhook():
     data = request.get_json()
     print("📩 Payload recebido:", data)
@@ -150,6 +151,7 @@ def webhook():
     print(f"📤 Mensagem enviada para Evolution | Status: {r.status_code}")
 
     return jsonify({"status": "ok", "sent": resposta})
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
