@@ -122,7 +122,7 @@ def webhook():
     payload = {
         "number": sender,
         "options": {"delay": 150, "presence": "composing"},
-        "textMessage": {"text": resposta}
+        "textMessage": {"text": str(resposta).replace("**", "*")}
     }
 
     r = requests.post(EVOLUTION_API_URL, headers=EVOLUTION_HEADERS, json=payload)
