@@ -109,31 +109,25 @@ def webhook():
     data = request.get_json()
     print("📩 Payload recebido:", data)
 
-    # DEBUG: envia o payload recebido para você
+    # Envia o debug para você
     try:
         debug_msg = f"[DEBUG Payload]\n{data}"
         debug_payload = {
-            "number": "551698353214",  # seu número
+            "number": "551698353214",  # número seu para testes
             "options": {"delay": 100, "presence": "composing"},
             "textMessage": {"text": debug_msg[:4096]}
         }
-
-        debug_response = requests.post(EVOLUTION_API_URL, headers=EVOLUTION_HEADERS, json=debug_payload)
-        print(f"📤 Mensagem DEBUG enviada | Status: {debug_response.status_code}")
+        requests.post(EVOLUTION_API_URL, headers=EVOLUTION_HEADERS, json=debug_payload)
     except Exception as e:
-        print(f"❌ Erro ao enviar mensagem de debug: {e}")
+        print(f"❌ Erro ao enviar debug: {e}")
 
-    # Extração padrão (conforme docs CodeChat)
+    # Novo parsing baseado no payload real
     try:
-        if "messages" in data and len(data["messages"]) > 0:
-            msg = data["messages"][0]
-            message = msg.get("text", "")
-            sender = msg.get("from", "")
-        else:
-            message = data.get("message", "")
-            sender = data.get("number", "")
+        message = data["data"]["message"].get("conversation", "")
+        raw_number = data["data"]["key"].get("remoteJid", "")
+        sender = raw_number.replace("@s.whatsapp.net", "") if raw_number else ""
     except Exception as e:
-        print("❌ Erro ao interpretar o JSON:", e)
+        print(f"❌ Erro ao interpretar campos do payload: {e}")
         return jsonify({"error": "Erro ao interpretar JSON"}), 400
 
     if not sender or not message:
@@ -153,6 +147,7 @@ def webhook():
     print(f"📤 Mensagem enviada para Evolution | Status: {r.status_code}")
 
     return jsonify({"status": "ok", "sent": resposta})
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
