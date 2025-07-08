@@ -103,6 +103,61 @@ def chat_with_gemini(user_input: str):
     chat_history.append({"role": "model", "parts": [{"text": text}]})
     return text
 
+@app.route("/control", methods=["POST"])
+def control_bot():
+    data = request.get_json()
+
+    if not data or "active" not in data:
+        return jsonify({"error": "Parâmetro 'active' (true ou false) obrigatório"}), 400
+
+    if data["active"] is True:
+        # Ligar o bot
+        try:
+            response = requests.post(
+                "https://evolution-api-ny08.onrender.com/webhook/set/HNtestingbot",
+                headers={
+                    "apikey": EVOLUTION_API_KEY,
+                    "Content-Type": "application/json"
+                },
+                json={
+                    "url": "https://whatsapp-bot-puz8.onrender.com/webhook/messages-upsert",
+                    "webhook_by_events": True,
+                    "webhook_base64": True,
+                    "events": ["MESSAGES_UPSERT", "APPLICATION_STARTUP"]
+                }
+            )
+            print("⚡ Bot ligado | Status:", response.status_code)
+            return jsonify({"status": "bot ligado", "evolution_status": response.status_code})
+        except Exception as e:
+            print("❌ Erro ao ligar o bot:", e)
+            return jsonify({"error": "Erro ao ligar o bot"}), 500
+
+    elif data["active"] is False:
+        # Desligar o bot
+        try:
+            response = requests.post(
+                "https://evolution-api-ny08.onrender.com/webhook/set/HNtestingbot",
+                headers={
+                    "apikey": EVOLUTION_API_KEY,
+                    "Content-Type": "application/json"
+                },
+                json={
+                    "url": "",
+                    "webhook_by_events": False,
+                    "webhook_base64": False,
+                    "events": []
+                }
+            )
+            print("🔌 Bot desligado | Status:", response.status_code)
+            return jsonify({"status": "bot desligado", "evolution_status": response.status_code})
+        except Exception as e:
+            print("❌ Erro ao desligar o bot:", e)
+            return jsonify({"error": "Erro ao desligar o bot"}), 500
+
+    else:
+        return jsonify({"error": "Valor inválido para 'active'. Use true ou false."}), 400
+
+
 @app.route("/webhook", methods=["POST"])
 @app.route("/webhook/messages-upsert", methods=["POST"])
 def webhook():
