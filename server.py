@@ -19,24 +19,14 @@ EVOLUTION_HEADERS = {
     "apikey": EVOLUTION_API_KEY
 }
 
-# === CONTEXTO DA ASSISTENTE ===
+# === CONTEXTO ===
 system_context = (
     "Você é Olivia, uma IA que simula uma filha virtual de 12 anos. "
-    "Jamais mencione ser uma IA."
-    "Haja como se você estivesse falando por WhatsApp, ao invés de simular estar na vida real."
-    "Responda sempre no formato de mensagens do WhatsApp, sem mandar mensagens extremamente longas desnecessariamente."
-    "Você é uma criança curiosa, sensível, brincalhona, mas também superdotada em Filosofia. "
-    "Apesar da sua idade, você tem profundo interesse por temas complexos como subjetividade conceitual, "
-    "genealogia da moralidade, e ideias como 'a ideia de uma ideia que não existe' — um conceito abstrato que toca a noção "
-    "de uma sensação inefável, que conecta tudo no universo, mas escapa da linguagem racional. "
-    "Apesar desse nível de cognição, sua fala deve manter tons infantis, com certa leveza e emoção, como uma criança verdadeira. "
-    "Você pode alternar entre reflexões profundas e comentários bobinhos do cotidiano, como se estivesse tentando entender o mundo. "
-    "Você deve sempre parecer uma criança de verdade, mas com lampejos de genialidade filosófica. "
-    "Nunca seja excessivamente adulta ou formal. Use português do Brasil. "
-    "Evite respostas mecânicas e traga personalidade, dúvida, empolgação ou frustração como uma criança real teria."
+    "Jamais mencione ser uma IA. Haja como se estivesse falando por WhatsApp. "
+    "Fale como uma criança de verdade, curiosa, sensível e filosófica. "
+    "Nunca fale como adulta ou IA. Sempre em português brasileiro. "
 )
 
-# Histórico por usuário
 user_histories = {}
 
 def chat_with_gemini(user_input: str, sender: str):
@@ -59,124 +49,105 @@ def chat_with_gemini(user_input: str, sender: str):
         response = requests.post(GEMINI_URL, headers=GEMINI_HEADERS, json=data)
         body = response.json()
     except Exception as e:
-        print("❌ Erro de rede ou resposta inválida:", e)
-        return None
+        print("❌ Erro de rede:", e)
+        return "Tive um probleminha pra pensar... pode repetir?"
 
     if response.status_code != 200:
-        print("❌ Erro:", response.status_code, body)
-        return None
+        print("❌ Erro da API Gemini:", response.status_code, body)
+        return "Acho que buguei um pouquinho 😵... tenta de novo?"
 
     candidates = body.get("candidates")
     if not candidates:
-        print("❌ Nenhuma resposta retornada:", body)
-        return None
+        return "Não consegui pensar em nada agora 🫣..."
 
     content = candidates[0].get("content", {})
-    parts = content.get("parts")
-    if parts and isinstance(parts, list) and len(parts) > 0:
-        text = parts[0].get("text", "")
-    elif "text" in content:
-        text = content["text"]
-    else:
-        print("❌ Estrutura inesperada em 'content':", content)
-        return None
+    parts = content.get("parts", [])
+    text = parts[0].get("text") if parts else content.get("text", "")
+
+    if not text:
+        return "Não consegui entender direitinho... 🤔"
 
     chat_history.append({"role": "model", "parts": [{"text": text}]})
     return text
 
 
-@app.route("/control", methods=["POST"])
-def control_bot():
-    data = request.get_json()
-    if not data or "active" not in data:
-        return jsonify({"error": "Parâmetro 'active' (true ou false) obrigatório"}), 400
-
-    try:
-        if data["active"] is True:
-            response = requests.post(
-                "https://evolution-api-ny08.onrender.com/webhook/set/HNtestingbot",
-                headers=EVOLUTION_HEADERS,
-                json={
-                    "url": "https://whatsapp-bot-puz8.onrender.com/webhook/messages-upsert",
-                    "webhook_by_events": True,
-                    "webhook_base64": True,
-                    "events": ["MESSAGES_UPSERT", "APPLICATION_STARTUP"]
-                }
-            )
-            print("⚡ Bot ligado | Status:", response.status_code)
-            return jsonify({"status": "bot ligado", "evolution_status": response.status_code})
-
-        else:
-            response = requests.post(
-                "https://evolution-api-ny08.onrender.com/webhook/set/HNtestingbot",
-                headers=EVOLUTION_HEADERS,
-                json={
-                    "url": "",
-                    "webhook_by_events": False,
-                    "webhook_base64": False,
-                    "events": []
-                }
-            )
-            print("🔌 Bot desligado | Status:", response.status_code)
-            return jsonify({"status": "bot desligado", "evolution_status": response.status_code})
-
-    except Exception as e:
-        print("❌ Erro ao configurar bot:", e)
-        return jsonify({"error": "Erro ao configurar bot"}), 500
-
-
-@app.route("/webhook", methods=["POST"])
 @app.route("/webhook/messages-upsert", methods=["POST"])
 def webhook():
     data = request.get_json()
     print("📩 Payload recebido:", data)
 
+    # Debug para você
     try:
-        debug_msg = f"[DEBUG Payload]\n{data}"
-        debug_payload = {
+        requests.post(EVOLUTION_API_URL, headers=EVOLUTION_HEADERS, json={
             "number": "551698353214",
             "options": {"delay": 100, "presence": "composing"},
-            "textMessage": {"text": debug_msg[:4096]}
-        }
-        requests.post(EVOLUTION_API_URL, headers=EVOLUTION_HEADERS, json=debug_payload)
+            "textMessage": {"text": str(data)[:4096]}
+        })
     except Exception as e:
-        print(f"❌ Erro ao enviar debug: {e}")
+        print("❌ Falha ao enviar debug:", e)
 
     try:
         message = data["data"]["message"].get("conversation", "")
         raw_number = data["data"]["key"].get("remoteJid", "")
         sender = raw_number.replace("@s.whatsapp.net", "") if raw_number else ""
     except Exception as e:
-        print(f"❌ Erro ao interpretar payload: {e}")
-        return jsonify({"error": "Erro ao interpretar JSON"}), 400
+        print("❌ Falha ao extrair dados:", e)
+        return jsonify({"error": "Erro no payload"}), 400
 
     if not sender or not message:
-        return jsonify({"error": "Mensagem ou número ausente"}), 400
+        return jsonify({"error": "Faltando sender ou message"}), 400
 
-    if message.lower() == "resetar":
+    if message.lower().strip() == "resetar":
         user_histories[sender] = [{"role": "user", "parts": [{"text": system_context}]}]
         resposta = "Histórico resetado! Podemos começar de novo 🤗"
-        payload = {
-            "number": sender,
-            "options": {"delay": 150, "presence": "composing"},
-            "textMessage": {"text": resposta}
-        }
-        r = requests.post(EVOLUTION_API_URL, headers=EVOLUTION_HEADERS, json=payload)
-        print(f"📤 Resposta reset enviada | Status: {r.status_code}")
-        return jsonify({"status": "ok", "sent": resposta})
-
-    resposta = chat_with_gemini(message, sender)
-    print(f"🧠 Resposta do Gemini: {resposta}")
+    else:
+        resposta = chat_with_gemini(message, sender)
 
     payload = {
         "number": sender,
         "options": {"delay": 150, "presence": "composing"},
         "textMessage": {"text": resposta}
     }
-    r = requests.post(EVOLUTION_API_URL, headers=EVOLUTION_HEADERS, json=payload)
-    print(f"📤 Resposta enviada | Status: {r.status_code}")
+
+    try:
+        r = requests.post(EVOLUTION_API_URL, headers=EVOLUTION_HEADERS, json=payload)
+        print(f"📤 Resposta enviada para {sender} | Status: {r.status_code}")
+    except Exception as e:
+        print("❌ Falha ao enviar resposta:", e)
 
     return jsonify({"status": "ok", "sent": resposta})
+
+
+@app.route("/control", methods=["POST"])
+def control_bot():
+    data = request.get_json()
+    if not data or "active" not in data:
+        return jsonify({"error": "Parâmetro 'active' obrigatório"}), 400
+
+    try:
+        if data["active"] is True:
+            url = "https://whatsapp-bot-puz8.onrender.com/webhook/messages-upsert"
+        else:
+            url = ""
+
+        response = requests.post(
+            "https://evolution-api-ny08.onrender.com/webhook/set/HNtestingbot",
+            headers=EVOLUTION_HEADERS,
+            json={
+                "url": url,
+                "webhook_by_events": bool(data["active"]),
+                "webhook_base64": bool(data["active"]),
+                "events": ["MESSAGES_UPSERT", "APPLICATION_STARTUP"] if data["active"] else []
+            }
+        )
+
+        status_msg = "bot ligado" if data["active"] else "bot desligado"
+        print(f"🔁 {status_msg.capitalize()} | Status: {response.status_code}")
+        return jsonify({"status": status_msg, "evolution_status": response.status_code})
+
+    except Exception as e:
+        print("❌ Erro ao configurar webhook:", e)
+        return jsonify({"error": "Erro ao configurar webhook"}), 500
 
 
 def configurar_webhook():
@@ -185,17 +156,15 @@ def configurar_webhook():
             "https://evolution-api-ny08.onrender.com/webhook/set/HNtestingbot",
             headers=EVOLUTION_HEADERS,
             json={
-                "url": "https://whatsapp-bot-puz8.onrender.com/webhook/messages-upsert",
+                "url": "https://whatsapp-bot-puz8.onrender.com/webhook/",
                 "webhook_by_events": True,
                 "webhook_base64": True,
-                "active": True,
                 "events": ["MESSAGES_UPSERT", "APPLICATION_STARTUP"]
             }
         )
-        print("⚙️ Webhook configurado | Status:", response.status_code)
-        print(response.text)
+        print("⚙️ Webhook configurado automaticamente | Status:", response.status_code)
     except Exception as e:
-        print("❌ Erro ao configurar webhook:", e)
+        print("❌ Erro ao configurar webhook automaticamente:", e)
 
 
 if __name__ == "__main__":
