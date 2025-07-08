@@ -110,7 +110,7 @@ app = Flask(__name__)
 @app.route("/webhook", methods=["POST"])
 def webhook():
     data = request.get_json()
-
+    print("Webhook payload:", data)
     message = data.get("message", "")
     sender = data.get("number", "")
 
